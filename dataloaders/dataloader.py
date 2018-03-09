@@ -52,7 +52,7 @@ class DataLoader():
 
     def process_dataset(self, input_directory, output_directory):
 
-        # self.process_data(os.path.join(input_directory, "training"), os.path.join(output_directory, "training.pickle"))
+        self.process_data(os.path.join(input_directory, "training"), os.path.join(output_directory, "training.pickle"))
         self.process_data(os.path.join(input_directory, "validation"), os.path.join(output_directory, "validation.pickle"))
         self.process_data(os.path.join(input_directory, "test"), os.path.join(output_directory, "test.pickle"))
         
