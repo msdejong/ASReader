@@ -1,19 +1,17 @@
-try:
-    import cPickle as pickle
-except:
-    import pickle
 import glob
 from data import Data
 import os
 import io
+import random
+
+
 
 class DataLoader():
     def __init__(self):
         pass
 
+    def load_data(self, input_directory, max_number=False):
 
-    def process_data(self, input_directory, output_path, max_number = False):
-        
         data = []
 
         filenames = glob.glob(os.path.join(input_directory, '*.question'))
@@ -28,26 +26,25 @@ class DataLoader():
 
                 document_tokens = lines[2].split()
                 query_tokens = lines[4].split()
-                answer_token = lines[6]
+                answer_tokens = lines[6].split()
                 entities = []
 
                 for line in lines[8:]:
                     index, entity = line.strip('\n').split(":", 1)
                     entities.append(entity)
-            
-                data_point = Data(document_tokens, query_tokens, answer_token, entities)
-                data.append(data_point)    
 
-        with open(output_path, "wb") as fout:
-            pickle.dump(data, fout)
+                data_point = Data(document_tokens, query_tokens, answer_tokens, entities)
+                data.append(data_point)
+
+        return data
 
 
-    def generate_vocabulary(self, data, special_tokens = ["<unk>"]):
+    def generate_vocabulary(self, data, special_tokens=["<unk>"]):
 
         word_set = set()
 
         for data_point in data:
-            tokens = data_point.document_tokens + data_point.query_tokens + data_point.index_to_entity.keys()
+            tokens = data_point.document_tokens + data_point.query_tokens + data_point.answer_tokens
             for token in tokens:
                 word_set.add(token)
 
@@ -60,40 +57,114 @@ class DataLoader():
 
         return vocab
 
-
-    def replace_words(self, tokens):
+    def word_to_id(self, tokens, vocabulary):
         ids = []
         for token in tokens:
-            if token in self.word_to_id:
-                ids.append(self.word_to_id[token])
+            if token in vocabulary:
+                ids.append(vocabulary[token])
             else:
-                ids.append(self.word_to_id["<unk>"])
+                ids.append(vocabulary["<unk>"])
         return ids
 
 
-    def get_data_set(self, data_path):
-
-        data = pickle.load(open(data_path, "rb"))
-
-        documents = []
-        questions = []
-        answers = []
-        entities = []
+    # Warning: this alters the data objects in place, side effects
+    def process_data(self, data, vocabulary):
 
         for data_point in data:
 
-            documents.append(self.replace_words(data_point.document_tokens))
-            questions.append(self.replace_words(data_point.question_tokens))
-            answers.append(self.replace_words(data_point.answer_token))
-            entities.append(self.replace_words(data_point.entities))
+            data_point.document_tokens = self.word_to_id(data_point.document_tokens, vocabulary)
+            data_point.query_tokens = self.word_to_id(data_point.query_tokens, vocabulary)
+            data_point.answer_tokens = self.word_to_id(data_point.answer_tokens, vocabulary)
 
-        return documents, questions, answers, entities
+    def randomize_entities(self, entity_vocabulary):
+            values = entity_vocabulary.values()
+            random.shuffle(values)
+            randomized_dictionary = dict(zip(entity_vocabulary.keys(), values))
+            return randomized_dictionary
 
-    # def process_dataset(self, input_directory, output_directory):
+    def replace_entities(self, data_point, randomized_vocabulary):
+            data_point.document_tokens = [randomized_vocabulary.get(data_point.document_tokens[i], data_point.document_tokens[i]) for i in range(len(data_point.document_tokens))]
+            data_point.answer_tokens = [randomized_vocabulary.get(data_point.answer_tokens[i], data_point.answer_tokens[i]) for i in range(len(data_point.answer_tokens))]
+            data_point.query_tokens = [randomized_vocabulary.get(data_point.query_tokens[i], data_point.query_tokens[i]) for i in range(len(data_point.query_tokens))]
 
-    #     self.process_data(os.path.join(input_directory, "training"), os.path.join(output_directory, "training.pickle"))
-    #     self.process_data(os.path.join(input_directory, "validation"), os.path.join(output_directory, "validation.pickle"))
-    #     self.process_data(os.path.join(input_directory, "test"), os.path.join(output_directory, "test.pickle"))
+    def pad_seq(self, seq, max_len, pad_token = 0):
+        seq += [pad_token for i in range(max_len-len(seq))]
+        return seq
+            
+            
+    def create_batches(self, data, batch_size, bucket_size, vocabulary):
 
+        entity_vocabulary = {word: vocabulary[word] for word in vocabulary if "@ent" in word}
 
+        temp_data = list(data)
+        random.shuffle(temp_data)
+
+        batches = []
+        data_per_bucket = batch_size * bucket_size
+        number_buckets = len(data) // data_per_bucket + int((len(data) % data_per_bucket) > 0)
+        
+        def create_bucket(bucket_data):
+            bucket = []
+            document_lengths = [len(data_point.document_tokens) for data_point in bucket_data]
+
+            sorted_data = list(zip(document_lengths, bucket_data))
+            sorted_data.sort(reverse=True)
+
+            document_lengths, bucket_data = zip(*sorted_data)
+
+            number_batches = len(bucket_data) // batch_size + int((len(bucket_data) % batch_size) > 0)
+
+            def create_batch(batch_data):
+
+                batch_length = len(batch_data)
+
+                randomized_entities = self.randomize_entities(entity_vocabulary)
+                for data_point in batch_data:
+                    self.replace_entities(data_point, randomized_entities)
+
+                batch_query_lengths = [len(data_point.query_tokens) for data_point in batch_data]
+                
+                sorted_batch = list(zip(batch_query_lengths, batch_data))
+                sorted_batch.sort(reverse=True)
+
+                batch_query_lengths, batch_data = zip(*sorted_batch)
+                batch_document_lengths = [len(data_point.document_tokens) for data_point in batch_data]
+                maximum_document_length = max(batch_document_lengths)
+                maximum_query_length = max(batch_query_lengths)
+
+                documents = [self.pad_seq(data_point.document_tokens, maximum_document_length) for data_point in batch_data]
+                queries = [self.pad_seq(data_point.query_tokens, maximum_query_length) for data_point in batch_data]
+                answers = [data_point.answer_tokens[0] for data_point in batch_data]
+                mask = [[int(x < batch_document_lengths[i]) for x in range(maximum_document_length)] for i in range(batch_length)]
+
+                answer_mask = [[int(x == answers[i]) for x in documents[i]] for i in range(batch_length)]
+
+                batch = {}
+                batch['documents'] = documents
+                batch['queries'] = queries
+                batch['answers'] = answers
+                batch['doclengths'] = batch_document_lengths
+                batch['qlengths'] = batch_query_lengths
+                batch['docmask'] = mask
+                batch['ansmask'] = answer_mask
+
+                return batch
+
+            for j in range(number_batches - 1):
+                begin_index, end_index = j * batch_size, (j + 1) * batch_size
+                batch_data = list(bucket_data[begin_index:end_index])
+                bucket.append(create_batch(batch_data))
+
+            batch_data = list(bucket_data[end_index:])
+            bucket.append(create_batch(batch_data))
+                
+            return bucket
+                
+        for i in range(number_buckets - 1):
+            bucket_data = temp_data[i * data_per_bucket:(i + 1) * data_per_bucket]
+            batches += create_bucket(bucket_data)
+        bucket_data = temp_data[number_buckets - 1:]
+        batches += create_bucket(bucket_data)
+
+        return batches
 
