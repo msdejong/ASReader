@@ -1,0 +1,1 @@
+python main.py --train_path x --max_train x --valid_path x --max_valid x --eval_interval x

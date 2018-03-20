@@ -1,7 +1,7 @@
 # ASReader
 
 Done / understood:
-Batches: create 10 batches ahead, sort by context length, low to high probably
+Batches: create 10 batches ahead, sort by context length, low to high
 Entities: shuffle entities across entire dataset every batch (jesus christ why)
 Special tokens: just unk. Question end token only if adding question to context. They set EOS and BOS to none
 pad queries, then use packed sequence for query GRU
@@ -16,14 +16,9 @@ candidate answers are the entities
 
 TODO:
 
-evaluate function
-train function
-
-
 Bias: initialized to 0
 Weights: isotropic gaussian(?)
 embedding weight initialization
-How use CUDA?
 
 save models
 speed
