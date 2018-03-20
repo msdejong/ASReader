@@ -167,9 +167,9 @@ if __name__ == "__main__":
     train(model, training_data, DL, vocabulary, batch_size=args.batch_size, bucket_size=args.bucket_size, learning_rate=args.learning_rate, valid_data=valid_data, eval_interval=args.eval_interval)
 
 
-    batches = DL.create_batches(valid_data, args.batch_size, args.bucket_size, vocabulary)
-    accuracy = evaluate_batches(model, batches)
-    print(accuracy)
+    # batches = DL.create_batches(valid_data, args.batch_size, args.bucket_size, vocabulary)
+    # accuracy = evaluate_batches(model, batches)
+    # print(accuracy)
 
 
 
@@ -199,9 +199,5 @@ if __name__ == "__main__":
     # print(test_loss)
 
     
-
-
-
-
 
 

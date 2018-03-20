@@ -95,7 +95,7 @@ class DataLoader():
             data_point.query_tokens[i], data_point.query_tokens[i]) for i in range(len(data_point.query_tokens))]
 
     def pad_seq(self, seq, max_len, pad_token=0):
-        seq += [pad_token for i in range(max_len - len(seq))]
+        seq = list(seq) + [pad_token for i in range(max_len - len(seq))]
         return seq
 
     def create_batches(self, data, batch_size, bucket_size, vocabulary):
@@ -178,7 +178,7 @@ class DataLoader():
         for i in range(number_buckets - 1):
             bucket_data = temp_data[i * data_per_bucket:(i + 1) * data_per_bucket]
             batches += create_bucket(bucket_data)
-        bucket_data = temp_data[number_buckets - 1:]
+        bucket_data = temp_data[(number_buckets - 1)*data_per_bucket:]
         batches += create_bucket(bucket_data)
 
         return batches
