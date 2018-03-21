@@ -12,6 +12,7 @@ Gradient clipping at 10
 leftover batches and buckets are allowed to be smaller size
 learning rate 0.001
 candidate answers are the entities
+pickle is slower than just loading
 
 
 TODO:
@@ -19,9 +20,11 @@ TODO:
 Bias: initialized to 0
 Weights: isotropic gaussian(?)
 embedding weight initialization
-try pickle for aws
+hidden layer initialization
+parallelize data loading?
 save models
-speed
 check random seed
 reproduce original model
+unknown words?
+entities in validation data
 

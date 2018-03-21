@@ -70,7 +70,7 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
         
         train_loss = 0
         train_score = 0
-        train_denom = 1
+        train_denom = 0
 
         training_batches = dataloader.create_batches(training_data, batch_size, bucket_size, vocabulary)
 
@@ -78,7 +78,9 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
 
         num_iterations = len(training_batches)
         for iteration in range(num_iterations):
-            if iteration%eval_interval == 0:
+
+            # track performance
+            if iteration%eval_interval == 0 and iteration!=0:
                 print("iteration {}".format(iteration))
                 print("train loss: {}".format(train_loss/train_denom))
                 print("train accuracy: {}".format(train_score/train_denom))
@@ -86,7 +88,7 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
                 train_score= 0
                 train_denom=0
 
-            if valid_data and iteration%eval_interval == 0:
+            if valid_data and iteration%eval_interval == 0 and iteration!=0:
                 valid_accuracy = evaluate_batches(model, valid_batches)
                 print("valid accuracy: {}".format(valid_accuracy))
                 
@@ -96,12 +98,17 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
 
             batch_query_lengths = batch['qlengths']
             batch_doc_lengths = batch['doclengths']
-            batch_entity_mask = batch['entlocations']
 
+            # document tokens
             batch_documents = Variable(torch.LongTensor(batch['documents']))
+            # query tokens
             batch_queries = Variable(torch.LongTensor(batch['queries']))
+            # 0 for locations beyond length of document
             batch_mask = Variable(torch.FloatTensor(batch['docmask']).unsqueeze(-1))
+            # 1 for locations with the answer token and 0 elsewhere
             batch_answer_mask = Variable(torch.FloatTensor(batch['ansmask']).unsqueeze(-1))
+            # Similar to answer mask, but for every other entity
+            batch_entity_mask = batch['entlocations']
             
             if USE_CUDA:
                 batch_documents = batch_documents.cuda()
@@ -117,6 +124,8 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
             torch.nn.utils.clip_grad_norm(model.parameters(), clip_threshold)
             optimizer.step()
 
+            #Calculate training loss and accuracy. Multiplying by batch length and later dividing by sum of batch lengths to be correct at end of epoch
+
             if USE_CUDA:
                 train_loss += loss.data.cpu().numpy()[0]
                 probs = probs.data.cpu().numpy()
@@ -131,7 +140,7 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
 
 
 
-
+# This file loads the data, creates the vocabulary from training data, replaces tokens with word ids, and trains the model
 
 if __name__ == "__main__":
     reload(sys)
@@ -166,6 +175,7 @@ if __name__ == "__main__":
     training_data = DL.load_data(args.train_path, args.max_train)
     valid_data = DL.load_data(args.valid_path, args.max_valid)
     vocabulary = DL.generate_vocabulary(training_data)
+
     print("Processing data")
     DL.process_data(training_data, vocabulary)
     DL.process_data(valid_data, vocabulary)
@@ -173,10 +183,13 @@ if __name__ == "__main__":
     model = ASReader(len(vocabulary), args.embedding_dim, args.encoding_dim)
     if USE_CUDA:
         model.cuda()
+
     print("Starting training")
     train(model, training_data, DL, vocabulary, batch_size=args.batch_size, bucket_size=args.bucket_size, learning_rate=args.learning_rate, valid_data=valid_data, eval_interval=args.eval_interval)
 
 
+# test nonsense beyond this point
+# -----------------------------------------------------------------------------------------------
     # batches = DL.create_batches(valid_data, args.batch_size, args.bucket_size, vocabulary)
     # accuracy = evaluate_batches(model, batches)
     # print(accuracy)
