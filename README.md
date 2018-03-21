@@ -19,7 +19,7 @@ TODO:
 Bias: initialized to 0
 Weights: isotropic gaussian(?)
 embedding weight initialization
-
+try pickle for aws
 save models
 speed
 check random seed

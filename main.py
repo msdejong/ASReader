@@ -7,6 +7,11 @@ import torch
 from torch.autograd import Variable
 from torch import optim, cuda
 import numpy as np
+from timeit import default_timer as tm
+try: 
+    import cPickle as pickle
+except:
+    import pickle
 
 
 def evaluate_batches(model, eval_batches):
@@ -113,10 +118,10 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
             optimizer.step()
 
             if USE_CUDA:
-                train_loss += loss.data.cpu().numpy()
+                train_loss += loss.data.cpu().numpy()[0]
                 probs = probs.data.cpu().numpy()
             else:
-                train_loss += loss.data.numpy()
+                train_loss += loss.data.numpy()[0]
                 probs = probs.data.numpy()
 
             train_score += evaluate(probs, batch_entity_mask, batch_doc_lengths) * len(batch_entity_mask)
@@ -135,7 +140,7 @@ if __name__ == "__main__":
 
     
     parser.add_argument("--train_path", type=str, default="/home/michiel/main/datasets/asreader/data/cnn/questions/training")
-    parser.add_argument("--max_train", type=int, default= 10000)
+    parser.add_argument("--max_train", type=int, default= 5000)
     parser.add_argument("--valid_path", type=str, default="/home/michiel/main/datasets/asreader/data/cnn/questions/validation")
     parser.add_argument("--max_valid", type=int, default= 200)
     parser.add_argument("--eval_interval", type=int, default=50)
@@ -156,14 +161,19 @@ if __name__ == "__main__":
         USE_CUDA = False
 
     DL = DataLoader()
+
+    print("Loading data")
     training_data = DL.load_data(args.train_path, args.max_train)
     valid_data = DL.load_data(args.valid_path, args.max_valid)
     vocabulary = DL.generate_vocabulary(training_data)
-
+    print("Processing data")
     DL.process_data(training_data, vocabulary)
     DL.process_data(valid_data, vocabulary)
 
     model = ASReader(len(vocabulary), args.embedding_dim, args.encoding_dim)
+    if USE_CUDA:
+        model.cuda()
+    print("Starting training")
     train(model, training_data, DL, vocabulary, batch_size=args.batch_size, bucket_size=args.bucket_size, learning_rate=args.learning_rate, valid_data=valid_data, eval_interval=args.eval_interval)
 
 

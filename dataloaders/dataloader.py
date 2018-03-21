@@ -3,22 +3,30 @@ from data import Data
 import os
 import io
 import random
+try: 
+    import cPickle as pickle
+except:
+    import pickle
 
 
 class DataLoader():
     def __init__(self):
         pass
 
-    def load_data(self, input_directory, max_number=False):
+    def load_data(self, input_directory, max_number=0):
 
         data = []
 
         filenames = glob.glob(os.path.join(input_directory, '*.question'))
         number_files = len(filenames)
-        if max_number:
+        if max_number!=0:
             number_files = max_number
 
         for i in range(number_files):
+
+            if i%20000==0 and i!=0:
+                print("{} files loaded".format(i))
+
             with io.open(filenames[i], encoding="utf8", errors='replace') as file:
 
                 lines = file.readlines()
@@ -43,6 +51,17 @@ class DataLoader():
                 data.append(data_point)
 
         return data
+
+
+    # def pickle_data(self, input_directory, output_path, max_number=0):
+    #     data = self.load_data(input_directory, max_number=max_number)
+    #     with open(output_path, "wb") as fout:
+    #         pickle.dump(data, fout)
+
+    # def load_pickle(self, input_path):
+    #     with open(input_path, "r") as fin:
+    #         data = pickle.load(fin)          
+    #     return data
 
     def generate_vocabulary(self, data, special_tokens=["<unk>"]):
 
