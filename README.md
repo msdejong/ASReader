@@ -27,4 +27,5 @@ check random seed
 reproduce original model
 unknown words?
 entities in validation data
+categorical cross entropy vs log?
 

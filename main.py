@@ -24,8 +24,8 @@ def evaluate_batches(model, eval_batches):
 
         batch_query_lengths = batch['qlengths']
         batch_doc_lengths = batch['doclengths']
-        batch_entity_mask = batch['entlocations']
-
+        batch_entity_locations = batch['entlocations']
+        batch_length = len(batch_query_lengths)
 
         batch_documents = Variable(torch.LongTensor(batch['documents'])) 
         batch_queries = Variable(torch.LongTensor(batch['queries'])) 
@@ -40,29 +40,32 @@ def evaluate_batches(model, eval_batches):
         else:
             probs = model(batch_documents, batch_queries, batch_query_lengths, batch_mask).data.numpy()
         
-        score += evaluate(probs, batch_entity_mask, batch_doc_lengths) * len(batch_entity_mask)
-        denom += len(batch_entity_mask)
+        score += evaluate(probs, batch_entity_locations, batch_doc_lengths, batch_length) * batch_length
+        denom += batch_length
 
     accuracy = score / denom
     return accuracy
 
-def evaluate(probs, entity_masks, doc_lengths):
-    batch_len = len(entity_masks)
+def evaluate(probs, batch_entity_locations, doc_lengths, batch_length):
     accuracy = 0
-    for i in range(batch_len):
-            entity_probs = np.matmul(entity_masks[i], probs[i, :][:doc_lengths[i]])
-            prediction = np.argmax(entity_probs)
-            if prediction ==0:
-                accuracy += 1/batch_len
+    for i in range(batch_length):
+        entity_locations = batch_entity_locations[i]
+        
+        entity_probs = np.zeros(len(entity_locations))
+        for j in range(len(entity_locations)):
+            entity_probs[j] = np.sum(probs[i, entity_locations[j]])
+        prediction = np.argmax(entity_probs)
+        if prediction == 0:
+            accuracy += 1/batch_length
     return accuracy
 
 
 
-def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size=32, bucket_size=10, learning_rate=0.001, clip_threshold=10, eval_interval=20, valid_data=False):
+def train(model, training_data, dataloader, num_epochs=2, batch_size=32, bucket_size=10, learning_rate=0.001, clip_threshold=10, eval_interval=20, valid_data=False):
 
 
     if valid_data:
-        valid_batches = dataloader.create_batches(valid_data, batch_size, bucket_size, vocabulary)
+        valid_batches = dataloader.create_batches(valid_data, batch_size, bucket_size)
 
     optimizer = optim.Adam(model.parameters(), lr = learning_rate)
 
@@ -72,12 +75,14 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
         train_score = 0
         train_denom = 0
 
-        training_batches = dataloader.create_batches(training_data, batch_size, bucket_size, vocabulary)
+        training_batches = dataloader.create_batches(training_data, batch_size, bucket_size)
 
-        optimizer.zero_grad()
+        
 
         num_iterations = len(training_batches)
         for iteration in range(num_iterations):
+
+            optimizer.zero_grad()
 
             # track performance
             if iteration%eval_interval == 0 and iteration!=0:
@@ -98,6 +103,7 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
 
             batch_query_lengths = batch['qlengths']
             batch_doc_lengths = batch['doclengths']
+            batch_length = len(batch_query_lengths)
 
             # document tokens
             batch_documents = Variable(torch.LongTensor(batch['documents']))
@@ -108,7 +114,7 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
             # 1 for locations with the answer token and 0 elsewhere
             batch_answer_mask = Variable(torch.FloatTensor(batch['ansmask']).unsqueeze(-1))
             # Similar to answer mask, but for every other entity
-            batch_entity_mask = batch['entlocations']
+            batch_entity_locations = batch['entlocations']
             
             if USE_CUDA:
                 batch_documents = batch_documents.cuda()
@@ -133,8 +139,8 @@ def train(model, training_data, dataloader, vocabulary, num_epochs=2, batch_size
                 train_loss += loss.data.numpy()[0]
                 probs = probs.data.numpy()
 
-            train_score += evaluate(probs, batch_entity_mask, batch_doc_lengths) * len(batch_entity_mask)
-            train_denom += len(batch_entity_mask)
+            train_score += evaluate(probs, batch_entity_locations, batch_doc_lengths, batch_length) * batch_length
+            train_denom += batch_length
 
             
 
@@ -149,10 +155,10 @@ if __name__ == "__main__":
 
     
     parser.add_argument("--train_path", type=str, default="/home/michiel/main/datasets/asreader/data/cnn/questions/training")
-    parser.add_argument("--max_train", type=int, default= 5000)
+    parser.add_argument("--max_train", type=int, default= 61)
     parser.add_argument("--valid_path", type=str, default="/home/michiel/main/datasets/asreader/data/cnn/questions/validation")
-    parser.add_argument("--max_valid", type=int, default= 200)
-    parser.add_argument("--eval_interval", type=int, default=50)
+    parser.add_argument("--max_valid", type=int, default= 20)
+    parser.add_argument("--eval_interval", type=int, default=1)
 
     parser.add_argument("--use_cuda", type=bool, default=False)
     parser.add_argument("--batch_size", type=int, default=32)
@@ -174,18 +180,14 @@ if __name__ == "__main__":
     print("Loading data")
     training_data = DL.load_data(args.train_path, args.max_train)
     valid_data = DL.load_data(args.valid_path, args.max_valid)
-    vocabulary = DL.generate_vocabulary(training_data)
+    
 
-    print("Processing data")
-    DL.process_data(training_data, vocabulary)
-    DL.process_data(valid_data, vocabulary)
-
-    model = ASReader(len(vocabulary), args.embedding_dim, args.encoding_dim)
+    model = ASReader(DL.data_vocab.get_length(), args.embedding_dim, args.encoding_dim)
     if USE_CUDA:
         model.cuda()
 
     print("Starting training")
-    train(model, training_data, DL, vocabulary, batch_size=args.batch_size, bucket_size=args.bucket_size, learning_rate=args.learning_rate, valid_data=valid_data, eval_interval=args.eval_interval)
+    train(model, training_data, DL, batch_size=args.batch_size, bucket_size=args.bucket_size, learning_rate=args.learning_rate, valid_data=valid_data, eval_interval=args.eval_interval)
 
 
 # test nonsense beyond this point
