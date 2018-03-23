@@ -20,7 +20,7 @@ class ASReader(nn.Module):
                                      bidirectional=True, batch_first=True)
         self.softmax = nn.Softmax(dim=1)
 
-    def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort, mask):
+    def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort, length_mask):
         
         query_embedded = self.embedding_layer(query_batch)
         document_embedded = self.embedding_layer(document_batch)
@@ -30,23 +30,21 @@ class ASReader(nn.Module):
         document_packed = pack_padded_sequence(document_embedded, document_lengths, batch_first=True)
 
         # Retrieve the last hidden state of the BiGRU as the query encoding
-        
-        query_encoded = self.query_encoding(query_packed)[1].permute(1, 0, 2).contiguous().view(-1, self.encoding_dim * 2, 1)
+        query_encoded = self.query_encoding(query_packed)[1]
+        query_encoded = query_encoded.permute(1, 0, 2).contiguous().view(-1, self.encoding_dim * 2, 1)
 
         # The hidden states of the document BiGRU correspond to the document token encodings
         document_encoded = self.document_encoding(document_packed)[0]
         
         # Unpack document
         document_unpacked, _ = pad_packed_sequence(document_encoded, batch_first=True)
-        # query_unpacked, _ = pad_packed_sequence(query_encoded, batch_first=True)
-
 
         # The queries and documents were separately ordered by length, here we put them back
         document_unsorted = torch.index_select(document_unpacked, 0, document_unsort)
         query_unsorted = torch.index_select(query_encoded, 0, query_unsort)
 
         # Take the dot product of document encodings and the query encoding. Apply a mask to ignore document encodings past the document length
-        scores = torch.bmm(document_unsorted, query_unsorted) * mask
+        scores = torch.bmm(document_unsorted, query_unsorted) * length_mask
         probs = self.softmax(scores)
         return probs
 

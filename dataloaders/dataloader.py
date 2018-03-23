@@ -72,7 +72,8 @@ class DataLoader():
                 query_tokens = np.array(self.data_vocab.add_and_get_indices(lines[4].split()))
                 answer_tokens = np.array(self.data_vocab.add_and_get_indices(lines[6].split()))
 
-                # entities = list()
+
+                # For each entity, create a list with the locations of this entity in the document
                 entity_locations = dict()
 
                 for line in lines[8:]:
@@ -83,6 +84,7 @@ class DataLoader():
                     if token in entity_locations:
                         entity_locations[token].append(i)
 
+                # Make sure the answer entity is at the beginning of the list
                 entity_locations = np.array([entity_locations[answer_tokens[0]]] + [entity_locations[ent]
                                                                                     for ent in entity_locations if ent != answer_tokens[0]])
 
@@ -163,8 +165,6 @@ class DataLoader():
                 batch_document_lengths = np.array([len(data_point.document_tokens)
                                           for data_point in batch_data])
 
-                
-                
                 maximum_document_length = max(batch_document_lengths)
                 maximum_query_length = max(batch_query_lengths)
 
