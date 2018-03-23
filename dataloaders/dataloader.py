@@ -175,10 +175,6 @@ class DataLoader():
                                     for data_point in batch_data])
                 answers = np.array([data_point.answer_tokens[0] for data_point in batch_data])
 
-                # Creates a mask that is equal to 0 for positions greater than the document length
-                length_mask = np.array([[int(x < batch_document_lengths[i])
-                                         for x in range(maximum_document_length)] for i in range(batch_length)])
-
                 # Creates a mask that is equal to 0 for positions that are not answer positions
                 # Used to calculate answer probability and loss
                 answer_mask = np.array([[int(x == answers[i]) for x in documents[i]]
@@ -210,7 +206,6 @@ class DataLoader():
                 batch['answers'] = answers
                 batch['doclengths'] = batch_document_lengths
                 batch['qlengths'] = batch_query_lengths
-                batch['docmask'] = length_mask
                 batch['ansmask'] = answer_mask
                 batch["entlocations"] = entity_locations
                 batch['docunsort'] = document_unsort

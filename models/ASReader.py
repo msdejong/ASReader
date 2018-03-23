@@ -20,7 +20,7 @@ class ASReader(nn.Module):
                                      bidirectional=True, batch_first=True)
         self.softmax = nn.Softmax(dim=1)
 
-    def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort, length_mask):
+    def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort):
         
         query_embedded = self.embedding_layer(query_batch)
         document_embedded = self.embedding_layer(document_batch)
@@ -43,8 +43,8 @@ class ASReader(nn.Module):
         document_unsorted = torch.index_select(document_unpacked, 0, document_unsort)
         query_unsorted = torch.index_select(query_encoded, 0, query_unsort)
 
-        # Take the dot product of document encodings and the query encoding. Apply a mask to ignore document encodings past the document length
-        scores = torch.bmm(document_unsorted, query_unsorted) * length_mask
+        # Take the dot product of document encodings and the query encoding.
+        scores = torch.bmm(document_unsorted, query_unsorted)
         probs = self.softmax(scores)
         return probs
 
