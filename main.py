@@ -41,7 +41,7 @@ def evaluate_batches(model, eval_batches):
                           batch_doc_lengths, batch_query_unsort, batch_document_unsort).data.cpu().numpy()
 
         else:
-            model(batch_documents, batch_queries, batch_query_lengths,
+            probs = model(batch_documents, batch_queries, batch_query_lengths,
                           batch_doc_lengths, batch_query_unsort, batch_document_unsort).data.numpy()
 
         score += evaluate(probs, batch_entity_locations,
@@ -79,7 +79,7 @@ def train(model, training_data, dataloader, num_epochs=2, batch_size=32, bucket_
         train_score = 0
         train_denom = 0
 
-        print("Starting epoch {}".format(epoch))
+        print("Starting epoch {}".format(epoch + 1))
         print("Creating batches")
         training_batches = dataloader.create_batches(training_data, batch_size, bucket_size)
 

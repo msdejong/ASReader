@@ -40,7 +40,6 @@ class ASReader(nn.Module):
         document_unpacked, _ = pad_packed_sequence(document_encoded, batch_first=True)
 
         # The queries and documents were separately ordered by length, here we put them back
-
         query_unsorted = torch.index_select(query_encoded, 0, query_unsort)
         document_unsorted = torch.index_select(document_unpacked, 0, document_unsort)
 
