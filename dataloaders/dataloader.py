@@ -3,7 +3,7 @@ from data import Data
 import os
 import io
 import random
-try: 
+try:
     import cPickle as pickle
 except:
     import pickle
@@ -11,21 +11,20 @@ import numpy as np
 
 
 class Vocabulary(object):
-    def __init__(self, pad_token = 'pad', unk = 'unk'):
+    def __init__(self, pad_token='pad', unk='unk'):
 
         self.vocabulary = dict()
         self.pad_token = pad_token
         self.unk = unk
         self.vocabulary[pad_token] = 0
         self.vocabulary[unk] = 1
-        
 
     def add_and_get_index(self, word):
         if word in self.vocabulary:
             return self.vocabulary[word]
         else:
             length = len(self.vocabulary)
-            self.vocabulary[word] = length 
+            self.vocabulary[word] = length
             return length
 
     def add_and_get_indices(self, words):
@@ -42,14 +41,12 @@ class DataLoader():
     def __init__(self):
         self.data_vocab = Vocabulary()
 
-
     def memory_usage_psutil(self):
-    # return the memory usage in MB
+        # return the memory usage in MB
         import psutil
         process = psutil.Process(os.getpid())
         mem = process.memory_info()[0] / float(2 ** 30)
         return mem
-
 
     # loads training data from directory
     def load_data(self, input_directory, max_number=0):
@@ -58,24 +55,22 @@ class DataLoader():
 
         filenames = glob.glob(os.path.join(input_directory, '*.question'))
         number_files = len(filenames)
-        if max_number!=0:
+        if max_number != 0:
             number_files = min(max_number, number_files)
 
         for i in range(number_files):
 
-            if i+1%20000==0:
-                print("{} files loaded".format(i))
+            if (i + 1) % 20000 == 0:
+                print("{} files loaded".format(i + 1))
 
             with io.open(filenames[i], encoding="utf8", errors='replace') as file:
 
                 lines = file.readlines()
 
-
                 # document, query and answer are at fixed location in files
                 document_tokens = np.array(self.data_vocab.add_and_get_indices(lines[2].split()))
                 query_tokens = np.array(self.data_vocab.add_and_get_indices(lines[4].split()))
                 answer_tokens = np.array(self.data_vocab.add_and_get_indices(lines[6].split()))
-
 
                 # entities = list()
                 entity_locations = dict()
@@ -88,24 +83,23 @@ class DataLoader():
                     if token in entity_locations:
                         entity_locations[token].append(i)
 
-                entity_locations = np.array([entity_locations[answer_tokens[0]]] + [entity_locations[ent] for ent in entity_locations if ent!=answer_tokens[0]])
-                
-                data_point = Data(document_tokens, query_tokens, answer_tokens, entity_locations) 
+                entity_locations = np.array([entity_locations[answer_tokens[0]]] + [entity_locations[ent]
+                                                                                    for ent in entity_locations if ent != answer_tokens[0]])
+
+                data_point = Data(document_tokens, query_tokens, answer_tokens, entity_locations)
                 data.append(data_point)
 
         return data
 
-
-    # This function basically randomizes a dictionary by shuffling the values while keeping the keys in place. 
-    # The goal here is to replace each entity with a different entity. 
+    # This function basically randomizes a dictionary by shuffling the values while keeping the keys in place.
+    # The goal here is to replace each entity with a different entity.
     def randomize_entities(self, entity_vocabulary):
         values = entity_vocabulary.values()
         random.shuffle(values)
         randomized_dictionary = dict(zip(entity_vocabulary.keys(), values))
         return randomized_dictionary
 
-
-    # Replaces each entity with its randomized entity. Changes the actual data with side effects, but we rerandomize every epoch anyway. 
+    # Replaces each entity with its randomized entity. Changes the actual data with side effects, but we rerandomize every epoch anyway.
     def replace_entities(self, data_point, randomized_vocabulary):
         data_point.document_tokens = np.array([randomized_vocabulary.get(
             data_point.document_tokens[i], data_point.document_tokens[i]) for i in range(len(data_point.document_tokens))])
@@ -120,14 +114,14 @@ class DataLoader():
         new_seq[:len(seq)] = seq
         return new_seq
 
-
     # Function creates batches by shuffling the data, making buckets of the data, and within those buckets, creating batches by sorting by document length
     def create_batches(self, data, batch_size, bucket_size):
 
         # Search out all the words in the vocabulary that are entities, and create a vocabulary mapping their word ids to themselves.
         # Later these will be shuffled.
         vocabulary = self.data_vocab.vocabulary
-        entity_vocabulary = {vocabulary[word]: vocabulary[word] for word in vocabulary if "@ent" in word}
+        entity_vocabulary = {vocabulary[word]: vocabulary[word]
+                             for word in vocabulary if "@ent" in word}
 
         # shuffle the actual data
         temp_data = list(data)
@@ -138,7 +132,6 @@ class DataLoader():
 
         # Calculate number of buckets
         number_buckets = len(data) // data_per_bucket + int((len(data) % data_per_bucket) > 0)
-
 
         def create_bucket(bucket_data, batch_size):
             bucket = []
@@ -158,43 +151,51 @@ class DataLoader():
 
                 batch_length = len(batch_data)
 
-                # We need to randomly shuffle the word_ids for entities every batch. 
-                #We create a new random mapping from entity word ids to entity word ids and replace the entities
+                # We need to randomly shuffle the word_ids for entities every batch.
+                # We create a new random mapping from entity word ids to entity word ids and replace the entities
 
                 randomized_entities = self.randomize_entities(entity_vocabulary)
                 for data_point in batch_data:
                     self.replace_entities(data_point, randomized_entities)
 
-                batch_query_lengths = [len(data_point.query_tokens) for data_point in batch_data]
+                batch_query_lengths = np.array([len(data_point.query_tokens) for data_point in batch_data])
 
-                # Sort by query length inside of a batch to use pack_padded sequence later
-                sorted_batch = list(zip(batch_query_lengths, batch_data))
-                sorted_batch.sort(reverse=True)
+                batch_document_lengths = np.array([len(data_point.document_tokens)
+                                          for data_point in batch_data])
 
+                # Create separate sort indices based on descending length for packing later
+                query_sort = np.argsort(batch_query_lengths)[::-1].copy()
+                document_sort = np.argsort(batch_document_lengths)[::-1].copy()
 
-                batch_query_lengths, batch_data = zip(*sorted_batch)
-                batch_document_lengths = [len(data_point.document_tokens)
-                                          for data_point in batch_data]
+                # Sort the lengths in the same order that the documents / queries are sorted
+                batch_query_lengths = batch_query_lengths[query_sort]
+                batch_document_lengths = batch_document_lengths[document_sort]
+
+                # Indices to reverse the sort
+                query_unsort = np.argsort(query_sort)[::-1].copy()
+                document_unsort= np.argsort(document_sort)[::-1].copy()
+                
+
                 maximum_document_length = max(batch_document_lengths)
                 maximum_query_length = max(batch_query_lengths)
 
-                #0-pad sequences
+                # 0-pad sequences
                 documents = np.array([self.pad_seq(data_point.document_tokens,
-                                          maximum_document_length) for data_point in batch_data])
+                                                   maximum_document_length) for data_point in batch_data])[document_sort,...]
                 queries = np.array([self.pad_seq(data_point.query_tokens, maximum_query_length)
-                           for data_point in batch_data])
+                                    for data_point in batch_data])[query_sort,...]
                 answers = np.array([data_point.answer_tokens[0] for data_point in batch_data])
 
                 # Creates a mask that is equal to 0 for positions greater than the document length
                 length_mask = np.array([[int(x < batch_document_lengths[i])
-                         for x in range(maximum_document_length)] for i in range(batch_length)])
+                                         for x in range(maximum_document_length)] for i in range(batch_length)])
 
                 # Creates a mask that is equal to 0 for positions that are not answer positions
                 # Used to calculate answer probability and loss
                 answer_mask = np.array([[int(x == answers[i]) for x in documents[i]]
-                               for i in range(batch_length)])
+                                        for i in range(batch_length)])
 
-                # An entity mask similar to the answer mask, for every entity in the document. 
+                # An entity mask similar to the answer mask, for every entity in the document.
                 # Later used to calculate entity probabilities.
                 entity_locations = [data_point.entity_locations for data_point in batch_data]
 
@@ -207,6 +208,8 @@ class DataLoader():
                 batch['docmask'] = length_mask
                 batch['ansmask'] = answer_mask
                 batch["entlocations"] = entity_locations
+                batch['docunsort'] = document_unsort
+                batch['qunsort'] = query_unsort
 
                 return batch
 
@@ -221,17 +224,15 @@ class DataLoader():
 
             return bucket
 
-        
         # Take care of last bucket separately because may contain a different amount of data
         for i in range(number_buckets - 1):
             bucket_data = temp_data[i * data_per_bucket:(i + 1) * data_per_bucket]
             batches += create_bucket(bucket_data, batch_size)
 
-            if i+1%100==0:
-                print("{} buckets created".format(i))
-                
+            if (i + 1) % 100 == 0:
+                print("{} buckets created".format(i + 1))
 
-        bucket_data = temp_data[(number_buckets - 1)*data_per_bucket:]
+        bucket_data = temp_data[(number_buckets - 1) * data_per_bucket:]
         batches += create_bucket(bucket_data, batch_size)
 
         return batches
