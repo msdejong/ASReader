@@ -163,27 +163,16 @@ class DataLoader():
                 batch_document_lengths = np.array([len(data_point.document_tokens)
                                           for data_point in batch_data])
 
-                # Create separate sort indices based on descending length for packing later
-                query_sort = np.argsort(batch_query_lengths)[::-1].copy()
-                document_sort = np.argsort(batch_document_lengths)[::-1].copy()
-
-                # Sort the lengths in the same order that the documents / queries are sorted
-                batch_query_lengths = batch_query_lengths[query_sort]
-                batch_document_lengths = batch_document_lengths[document_sort]
-
-                # Indices to reverse the sort
-                query_unsort = np.argsort(query_sort)[::-1].copy()
-                document_unsort= np.argsort(document_sort)[::-1].copy()
                 
-
+                
                 maximum_document_length = max(batch_document_lengths)
                 maximum_query_length = max(batch_query_lengths)
 
                 # 0-pad sequences
                 documents = np.array([self.pad_seq(data_point.document_tokens,
-                                                   maximum_document_length) for data_point in batch_data])[document_sort,...]
+                                                   maximum_document_length) for data_point in batch_data])
                 queries = np.array([self.pad_seq(data_point.query_tokens, maximum_query_length)
-                                    for data_point in batch_data])[query_sort,...]
+                                    for data_point in batch_data])
                 answers = np.array([data_point.answer_tokens[0] for data_point in batch_data])
 
                 # Creates a mask that is equal to 0 for positions greater than the document length
@@ -195,6 +184,22 @@ class DataLoader():
                 answer_mask = np.array([[int(x == answers[i]) for x in documents[i]]
                                         for i in range(batch_length)])
 
+                # Create separate sort indices based on descending length for packing later
+                query_sort = np.argsort(batch_query_lengths)[::-1].copy()
+                document_sort = np.argsort(batch_document_lengths)[::-1].copy()
+
+                queries = queries[query_sort,...]
+                documents = documents[document_sort,...]
+
+                # Sort the lengths in the same order that the documents / queries are sorted
+                batch_query_lengths = batch_query_lengths[query_sort]
+                batch_document_lengths = batch_document_lengths[document_sort]
+
+                # Indices to reverse the sort
+                query_unsort = np.argsort(query_sort)[::-1].copy()
+                document_unsort= np.argsort(document_sort)[::-1].copy()
+
+                
                 # An entity mask similar to the answer mask, for every entity in the document.
                 # Later used to calculate entity probabilities.
                 entity_locations = [data_point.entity_locations for data_point in batch_data]

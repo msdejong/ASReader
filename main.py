@@ -169,7 +169,7 @@ if __name__ == "__main__":
     parser.add_argument("--valid_path", type=str,
                         default="/home/michiel/main/datasets/asreader/data/cnn/questions/validation")
     parser.add_argument("--max_valid", type=int, default=64)
-    parser.add_argument("--eval_interval", type=int, default=1)
+    parser.add_argument("--eval_interval", type=int, default=2)
 
     parser.add_argument("--use_cuda", type=bool, default=False)
     parser.add_argument("--batch_size", type=int, default=32)

@@ -30,7 +30,8 @@ class ASReader(nn.Module):
         document_packed = pack_padded_sequence(document_embedded, document_lengths, batch_first=True)
 
         # Retrieve the last hidden state of the BiGRU as the query encoding
-        query_encoded = self.query_encoding(query_packed)[1].view(-1, self.encoding_dim * 2, 1)
+        
+        query_encoded = self.query_encoding(query_packed)[1].permute(1, 0, 2).contiguous().view(-1, self.encoding_dim * 2, 1)
 
         # The hidden states of the document BiGRU correspond to the document token encodings
         document_encoded = self.document_encoding(document_packed)[0]
