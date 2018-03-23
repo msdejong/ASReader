@@ -13,7 +13,7 @@ leftover batches and buckets are allowed to be smaller size
 learning rate 0.001
 candidate answers are the entities
 pickle is slower than just loading
-
+divide loss by batch size
 
 TODO:
 
@@ -24,8 +24,7 @@ hidden layer initialization
 parallelize data loading?
 save models
 check random seed
-reproduce original model
 unknown words?
 entities in validation data
-categorical cross entropy vs log?
+
 

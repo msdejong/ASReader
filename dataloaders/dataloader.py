@@ -192,8 +192,8 @@ class DataLoader():
                 batch_document_lengths = batch_document_lengths[document_sort]
 
                 # Indices to reverse the sort
-                query_unsort = np.argsort(query_sort)[::-1].copy()
-                document_unsort= np.argsort(document_sort)[::-1].copy()
+                query_unsort = np.argsort(query_sort)
+                document_unsort= np.argsort(document_sort)
 
                 
                 # An entity mask similar to the answer mask, for every entity in the document.
