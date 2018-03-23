@@ -20,7 +20,7 @@ class ASReader(nn.Module):
                                      bidirectional=True, batch_first=True)
         self.softmax = nn.Softmax(dim=1)
 
-    def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort):
+    def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort, length_mask):
         
         query_embedded = self.embedding_layer(query_batch)
         document_embedded = self.embedding_layer(document_batch)
@@ -46,6 +46,11 @@ class ASReader(nn.Module):
         # Take the dot product of document encodings and the query encoding.
         scores = torch.bmm(document_unsorted, query_unsorted)
         probs = self.softmax(scores)
+
+        # Normalize properly by multiplying by ratio of sum including and excluding padded values
+        denom_ratio = (torch.sum(probs, dim=1) / torch.sum(probs * length_mask, dim=1)).squeeze()
+        probs = probs * denom_ratio 
+        
         return probs
 
     def loss(self, probs, answer_mask):
@@ -53,4 +58,4 @@ class ASReader(nn.Module):
         # Calculate the sum of probabilities over the positions in the document that have the answer token by multiplying all other positions by 0
         answer_probs = torch.sum(probs * answer_mask, 1)
         loss_vector = -torch.log(answer_probs)
-        return torch.sum(loss_vector)
+        return torch.mean(loss_vector)

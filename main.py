@@ -32,17 +32,20 @@ def evaluate_batches(model, eval_batches):
         batch_query_unsort = Variable(torch.LongTensor(batch['qunsort']))
         batch_document_unsort = Variable(torch.LongTensor(batch['docunsort']))
 
+        batch_length_mask = Variable(torch.FloatTensor(batch['lengthmask']).unsqueeze(-1))
+
         if USE_CUDA:
             batch_documents = batch_documents.cuda()
             batch_queries = batch_queries.cuda()
             batch_query_unsort = batch_query_unsort.cuda()
             batch_document_unsort = batch_document_unsort.cuda()
+            batch_length_mask = batch_length_mask.cuda()
             probs = model(batch_documents, batch_queries, batch_query_lengths,
-                          batch_doc_lengths, batch_query_unsort, batch_document_unsort).data.cpu().numpy()
+                          batch_doc_lengths, batch_query_unsort, batch_document_unsort, batch_length_mask).data.cpu().numpy()
 
         else:
             probs = model(batch_documents, batch_queries, batch_query_lengths,
-                          batch_doc_lengths, batch_query_unsort, batch_document_unsort).data.numpy()
+                          batch_doc_lengths, batch_query_unsort, batch_document_unsort, batch_length_mask).data.numpy()
 
         score += evaluate(probs, batch_entity_locations,
                           batch_doc_lengths[batch['docunsort']], batch_length) * batch_length
@@ -115,6 +118,8 @@ def train(model, training_data, dataloader, num_epochs=2, batch_size=32, bucket_
             batch_queries = Variable(torch.LongTensor(batch['queries']))
             # 1 for locations with the answer token and 0 elsewhere
             batch_answer_mask = Variable(torch.FloatTensor(batch['ansmask']).unsqueeze(-1))
+            batch_length_mask = Variable(torch.FloatTensor(batch['lengthmask']).unsqueeze(-1))
+
             # Similar to answer mask, but for every other entity
             batch_entity_locations = batch['entlocations']
             # Index to un- sort the arrays
@@ -125,19 +130,19 @@ def train(model, training_data, dataloader, num_epochs=2, batch_size=32, bucket_
                 batch_documents = batch_documents.cuda()
                 batch_queries = batch_queries.cuda()
                 batch_answer_mask = batch_answer_mask.cuda()
+                batch_length_mask = batch_length_mask.cuda()
                 batch_query_unsort = batch_query_unsort.cuda()
                 batch_document_unsort = batch_document_unsort.cuda()
 
             probs = model(batch_documents, batch_queries, batch_query_lengths,
-                          batch_doc_lengths, batch_query_unsort, batch_document_unsort)
-            loss = model.loss(probs, batch_answer_mask) / batch_length
-
+                          batch_doc_lengths, batch_query_unsort, batch_document_unsort, batch_length_mask)
+            loss = model.loss(probs, batch_answer_mask)
             loss.backward()
 
             torch.nn.utils.clip_grad_norm(model.parameters(), clip_threshold)
             optimizer.step()
 
-            # Calculate training loss and accuracy. 
+            # Calculate training loss and accuracy.
             # Multiplying by batch length and later dividing by sum of batch lengths to be correct for differing batch length at end of epoch
 
             if USE_CUDA:
@@ -195,6 +200,4 @@ if __name__ == "__main__":
 
     print("Starting training")
     train(model, training_data, DL, batch_size=args.batch_size, bucket_size=args.bucket_size,
-          learning_rate=args.learning_rate, valid_data=valid_data, eval_interval=args.eval_interval)
-
-
+          learning_rate=args.learning_rate, valid_data=valid_data, eval_interval=args.eval_interval, num_epochs=args.num_epochs)
