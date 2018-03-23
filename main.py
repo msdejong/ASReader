@@ -30,8 +30,8 @@ def evaluate_batches(model, eval_batches):
         batch_queries = Variable(torch.LongTensor(batch['queries']))
         batch_mask = Variable(torch.FloatTensor(batch['docmask']).unsqueeze(-1))
         # Index to un- sort the arrays
-        batch_query_unsort = Variable(torch.LongTensor(batch['docunsort']))
-        batch_document_unsort = Variable(torch.LongTensor(batch['qunsort']))
+        batch_query_unsort = Variable(torch.LongTensor(batch['qunsort']))
+        batch_document_unsort = Variable(torch.LongTensor(batch['docunsort']))
 
         if USE_CUDA:
             batch_documents = batch_documents.cuda()
