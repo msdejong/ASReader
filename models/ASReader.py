@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn import functional
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
+from torch.nn.init import orthogonal
 
 class ASReader(nn.Module):
     def __init__(self, vocab_size, embedding_dim, encoding_dim):
@@ -18,7 +18,7 @@ class ASReader(nn.Module):
                                         bidirectional=True, batch_first=True)
         self.query_encoding = nn.GRU(embedding_dim, encoding_dim,
                                      bidirectional=True, batch_first=True)
-        self.softmax = nn.Softmax(dim=1)
+        # self.softmax = nn.Softmax(dim=1)
 
         self.initialize_weights()
 
@@ -77,6 +77,8 @@ class ASReader(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Embedding):
                 m.weight.data.uniform_(-0.1, 0.1)
+            # if isinstance(m, nn.GRU):
+            
         
 
 
