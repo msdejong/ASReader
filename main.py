@@ -176,8 +176,8 @@ if __name__ == "__main__":
     parser.add_argument("--use_cuda", type=bool, default=False)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--bucket_size", type=int, default=10)
-    parser.add_argument("--encoding_dim", type=int, default=128)
-    parser.add_argument("--embedding_dim", type=int, default=384)
+    parser.add_argument("--encoding_dim", type=int, default=384)
+    parser.add_argument("--embedding_dim", type=int, default=128)
     parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--num_epochs", type=int, default=10)
 

@@ -20,6 +20,9 @@ class ASReader(nn.Module):
                                      bidirectional=True, batch_first=True)
         self.softmax = nn.Softmax(dim=1)
 
+        self.initialize_weights()
+
+
     def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort, length_mask):
         
         query_embedded = self.embedding_layer(query_batch)
@@ -45,12 +48,14 @@ class ASReader(nn.Module):
 
         # Take the dot product of document encodings and the query encoding.
         scores = torch.bmm(document_unsorted, query_unsorted)
-        probs = self.softmax(scores)
+        probs = self.softmax_mask(scores, length_mask)
 
-        # Normalize properly by multiplying by ratio of sum including and excluding padded values
-        denom_ratio = (torch.sum(probs, dim=1) / torch.sum(probs * length_mask, dim=1)).squeeze()
-        probs = probs * denom_ratio 
-        
+        # probs = self.softmax(scores)
+
+        # # Normalize properly by multiplying by ratio of sum including and excluding padded values
+        # denom_ratio = (torch.sum(probs, dim=1) / torch.sum(probs * length_mask, dim=1)).squeeze()
+        # probs = probs * denom_ratio 
+
         return probs
 
     def loss(self, probs, answer_mask):
@@ -59,3 +64,19 @@ class ASReader(nn.Module):
         answer_probs = torch.sum(probs * answer_mask, 1)
         loss_vector = -torch.log(answer_probs)
         return torch.mean(loss_vector)
+
+    def softmax_mask(self, scores, mask):
+        masked_scores = scores * mask
+        shifted_scores = (masked_scores - torch.max(masked_scores, dim=1, keepdim=True)[0]) * mask
+        logdenom = torch.log(torch.sum(torch.exp(shifted_scores) * mask, dim=1, keepdim=True))
+        logprobs = (shifted_scores-logdenom) * mask 
+        probs = torch.exp(logprobs) * mask
+        return probs
+
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Embedding):
+                m.weight.data.uniform_(-0.1, 0.1)
+        
+
+

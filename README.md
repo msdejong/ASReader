@@ -4,6 +4,7 @@ Done / understood:
 Batches: create 10 batches ahead, sort by context length, low to high
 Entities: shuffle entities across entire dataset every batch (jesus christ why)
 Special tokens: just unk. Question end token only if adding question to context. They set EOS and BOS to none
+Unk is never used because they add validation/test to vocabulary and don't replace infrequent words
 pad queries, then use packed sequence for query GRU
 pad documents, after multiplying with query, mask
 Loss: log likelihood of answer
@@ -15,6 +16,7 @@ candidate answers are the entities
 pickle is slower than just loading
 divide loss by batch size
 
+
 TODO:
 
 Bias: initialized to 0
@@ -24,7 +26,6 @@ hidden layer initialization
 parallelize data loading?
 save models
 check random seed
-unknown words?
 entities in validation data
 
 

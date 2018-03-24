@@ -14,6 +14,7 @@ class Vocabulary(object):
     def __init__(self, pad_token='pad', unk='unk'):
 
         self.vocabulary = dict()
+        self.inverse_vocabulary = dict()
         self.pad_token = pad_token
         self.unk = unk
         self.vocabulary[pad_token] = 0
@@ -25,6 +26,7 @@ class Vocabulary(object):
         else:
             length = len(self.vocabulary)
             self.vocabulary[word] = length
+            self.inverse_vocabulary[length] = word
             return length
 
     def add_and_get_indices(self, words):
@@ -35,6 +37,7 @@ class Vocabulary(object):
 
     def get_length(self):
         return len(self.vocabulary)
+
 
 
 class DataLoader():
@@ -156,9 +159,9 @@ class DataLoader():
                 # We need to randomly shuffle the word_ids for entities every batch.
                 # We create a new random mapping from entity word ids to entity word ids and replace the entities
 
-                # randomized_entities = self.randomize_entities(entity_vocabulary)
-                # for data_point in batch_data:
-                #     self.replace_entities(data_point, randomized_entities)
+                randomized_entities = self.randomize_entities(entity_vocabulary)
+                for data_point in batch_data:
+                    self.replace_entities(data_point, randomized_entities)
 
                 batch_query_lengths = np.array([len(data_point.query_tokens) for data_point in batch_data])
 
