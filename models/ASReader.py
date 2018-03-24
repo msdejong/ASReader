@@ -22,9 +22,9 @@ class ASReader(nn.Module):
 
     def softmax(self, scores, mask):
         input_masked = scores*mask
-        shifted = mask*(input_masked - input_masked.max( dim=1))
-        Z = torch.log(mask*torch.exp(shifted)).sum(dim=1)
-        result = mask*(shifted - Z)
+        shifted = mask*(input_masked - torch.max(input_masked, dim=1)[0].unsqueeze(1))
+        Z = torch.log((mask*torch.exp(shifted)).sum(dim=1))
+        result = mask*(shifted - Z.unsqueeze(1))
         return mask*torch.exp(result)
 
     def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort, length_mask):
