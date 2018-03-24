@@ -20,6 +20,13 @@ class ASReader(nn.Module):
                                      bidirectional=True, batch_first=True)
         self.softmax = nn.Softmax(dim=1)
 
+    def softmax(self, scores, mask):
+        input_masked = scores*mask
+        shifted = mask*(input_masked - input_masked.max( dim=1))
+        Z = torch.log(mask*torch.exp(shifted)).sum(dim=1)
+        result = mask*(shifted - Z)
+        return mask*torch.exp(result)
+
     def forward(self, document_batch, query_batch, query_lengths, document_lengths, query_unsort, document_unsort, length_mask):
         
         query_embedded = self.embedding_layer(query_batch)
@@ -44,12 +51,12 @@ class ASReader(nn.Module):
         document_unsorted = torch.index_select(document_unpacked, 0, document_unsort)
 
         # Take the dot product of document encodings and the query encoding.
-        scores = torch.bmm(document_unsorted, query_unsorted)
-        probs = self.softmax(scores)
+        scores = torch.bmm(document_unsorted, query_unsorted)*length_mask
+        probs = self.softmax(scores, length_mask)
 
         # Normalize properly by multiplying by ratio of sum including and excluding padded values
-        denom_ratio = (torch.sum(probs, dim=1) / torch.sum(probs * length_mask, dim=1)).squeeze()
-        probs = probs * denom_ratio 
+        # denom_ratio = (torch.sum(probs, dim=1) / torch.sum(probs * length_mask, dim=1)).squeeze()
+        # probs = probs * denom_ratio
         
         return probs
 
