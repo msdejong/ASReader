@@ -183,6 +183,10 @@ class DataLoader():
                 answer_mask = np.array([[int(x == answers[i]) for x in documents[i]]
                                         for i in range(batch_length)])
 
+                # Create length mask
+                length_mask = np.array([[int(x < batch_document_lengths[i]) 
+                                         for x in range(maximum_document_length)] for i in range(batch_length)])
+
 
                 # Create separate sort indices based on descending length for packing later
                 query_sort = np.argsort(batch_query_lengths)[::-1].copy()
@@ -191,14 +195,11 @@ class DataLoader():
                 queries = queries[query_sort,...]
                 documents = documents[document_sort,...]
 
-
                 # Sort the lengths in the same order that the documents / queries are sorted
                 batch_query_lengths = batch_query_lengths[query_sort]
                 batch_document_lengths = batch_document_lengths[document_sort]
 
-                # Create length mask from sorted document, because it will be used in the model 
-                length_mask = np.array([[int(x < batch_document_lengths[i]) 
-                                         for x in range(maximum_document_length)] for i in range(batch_length)])
+
 
                 # Indices to reverse the sort
                 query_unsort = np.argsort(query_sort)
