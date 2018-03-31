@@ -1,31 +1,24 @@
-# ASReader
+# AS Reader
 
-Done / understood:
-Batches: create 10 batches ahead, sort by context length, low to high
-Entities: shuffle entities across entire dataset every batch (jesus christ why)
-Special tokens: just unk. Question end token only if adding question to context. They set EOS and BOS to none
-Unk is never used because they add validation/test to vocabulary and don't replace infrequent words
-pad queries, then use packed sequence for query GRU
-pad documents, after multiplying with query, mask
-Loss: log likelihood of answer
-accuracy measure is standard accuracy
-Gradient clipping at 10
-leftover batches and buckets are allowed to be smaller size
-learning rate 0.001
-candidate answers are the entities
-pickle is slower than just loading
-divide loss by batch size
+## Introduction
 
+This is a PyTorch implementation of the AS Reader as presented in "Text Understanding with the Attention Sum Reader Network" available at https://arxiv.org/abs/1603.01547.
 
-TODO:
+We evaluate AS Reader on the CNN dataset (https://arxiv.org/abs/1506.03340)
 
-Bias: initialized to 0
-Weights: isotropic gaussian(?)
-embedding weight initialization
-hidden layer initialization
-parallelize data loading?
-save models
-check random seed
-entities in validation data
+## Quick Start
+To run the model:
+Download the data from https://cs.nyu.edu/~kcho/DMQA/. 
 
-
+To train the model run the model with following arguments:-
+```
+python main.py 
+             --train_path <path_to_training_folder>
+             --valid_path <path_to_validation_folder>
+             --test_path <path_to_test_folder>
+             --eval_interval 500 
+             --use_cuda True 
+             --num_epochs 2 
+             --learning_rate 0.001 
+             --seed 2  
+```
