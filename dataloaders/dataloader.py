@@ -184,28 +184,11 @@ class DataLoader():
                                         for i in range(batch_length)])
 
                 # Create length mask
-                length_mask = np.array([[int(x < batch_document_lengths[i]) 
+                document_mask = np.array([[int(x < batch_document_lengths[i]) 
                                          for x in range(maximum_document_length)] for i in range(batch_length)])
+                query_mask = np.array([[int(x < batch_query_lengths[i]) 
+                                         for x in range(maximum_query_length)] for i in range(batch_length)])
 
-
-                # Create separate sort indices based on descending length for packing later
-                query_sort = np.argsort(batch_query_lengths)[::-1].copy()
-                document_sort = np.argsort(batch_document_lengths)[::-1].copy()
-
-                queries = queries[query_sort,...]
-                documents = documents[document_sort,...]
-
-                # Sort the lengths in the same order that the documents / queries are sorted
-                batch_query_lengths = batch_query_lengths[query_sort]
-                batch_document_lengths = batch_document_lengths[document_sort]
-
-
-
-                # Indices to reverse the sort
-                query_unsort = np.argsort(query_sort)
-                document_unsort= np.argsort(document_sort)
-
-                
                 # An entity mask similar to the answer mask, for every entity in the document.
                 # Later used to calculate entity probabilities.
                 entity_locations = [data_point.entity_locations for data_point in batch_data]
@@ -217,10 +200,9 @@ class DataLoader():
                 batch['doclengths'] = batch_document_lengths
                 batch['qlengths'] = batch_query_lengths
                 batch['ansmask'] = answer_mask
-                batch['lengthmask'] = length_mask
+                batch['docmask'] = document_mask
+                batch['qmask'] = query_mask
                 batch["entlocations"] = entity_locations
-                batch['docunsort'] = document_unsort
-                batch['qunsort'] = query_unsort
 
                 return batch
 

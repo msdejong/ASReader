@@ -12,7 +12,9 @@ try:
     import cPickle as pickle
 except:
     import pickle
-
+import random
+from itertools import ifilter
+import cProfile
 
 def evaluate_batches(model, eval_batches):
 
@@ -22,40 +24,32 @@ def evaluate_batches(model, eval_batches):
     for batch in eval_batches:
 
         batch_query_lengths = batch['qlengths']
-        batch_doc_lengths = batch['doclengths']
         batch_entity_locations = batch['entlocations']
         batch_length = len(batch_query_lengths)
 
         batch_documents = Variable(torch.LongTensor(batch['documents']))
         batch_queries = Variable(torch.LongTensor(batch['queries']))
-        # Index to un- sort the arrays
-        batch_query_unsort = Variable(torch.LongTensor(batch['qunsort']))
-        batch_document_unsort = Variable(torch.LongTensor(batch['docunsort']))
-
-        batch_length_mask = Variable(torch.FloatTensor(batch['lengthmask']).unsqueeze(-1))
+        batch_document_mask = Variable(torch.FloatTensor(batch['docmask']).unsqueeze(-1))
+        batch_query_mask = Variable(torch.FloatTensor(batch['qmask']).unsqueeze(-1))
 
         if USE_CUDA:
             batch_documents = batch_documents.cuda()
             batch_queries = batch_queries.cuda()
-            batch_query_unsort = batch_query_unsort.cuda()
-            batch_document_unsort = batch_document_unsort.cuda()
-            batch_length_mask = batch_length_mask.cuda()
-            probs = model(batch_documents, batch_queries, batch_query_lengths,
-                          batch_doc_lengths, batch_query_unsort, batch_document_unsort, batch_length_mask).data.cpu().numpy()
+            batch_document_mask = batch_document_mask.cuda()
+            batch_query_mask = batch_query_mask.cuda()
+            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask).data.cpu().numpy()
 
         else:
-            probs = model(batch_documents, batch_queries, batch_query_lengths,
-                          batch_doc_lengths, batch_query_unsort, batch_document_unsort, batch_length_mask).data.numpy()
+            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask).data.numpy()
 
-        score += evaluate(probs, batch_entity_locations,
-                          batch_doc_lengths[batch['docunsort']], batch_length) * batch_length
+        score += evaluate(probs, batch_entity_locations, batch_length) * batch_length
         denom += batch_length
 
     accuracy = score / denom
     return accuracy
 
 
-def evaluate(probs, batch_entity_locations, doc_lengths, batch_length):
+def evaluate(probs, batch_entity_locations, batch_length):
     accuracy = 0
     for i in range(batch_length):
         entity_locations = batch_entity_locations[i]
@@ -68,6 +62,10 @@ def evaluate(probs, batch_entity_locations, doc_lengths, batch_length):
             accuracy += 1 / batch_length
     return accuracy
 
+def get_trainable_parameters(model):
+    parameters = ifilter(lambda p: p.requires_grad, model.parameters())
+    return parameters
+
 
 def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2, batch_size=32, bucket_size=10, learning_rate=0.001, clip_threshold=10, eval_interval=20, model_path=""):
 
@@ -76,7 +74,8 @@ def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2,
     print("Creating test batches")
     test_batches = dataloader.create_batches(test_data, batch_size, bucket_size)
 
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+    optimizer = optim.Adam(get_trainable_parameters(model), lr=learning_rate)
 
     train_loss = 0
     train_score = 0
@@ -119,11 +118,7 @@ def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2,
 
             batch = training_batches[iteration]
 
-            # Note: lengths are in descending order, not in the proper batch order
-            batch_query_lengths = batch['qlengths']
-            batch_doc_lengths = batch['doclengths']
-
-            batch_length = len(batch_query_lengths)
+            batch_length = len(batch["documents"])
 
             # document tokens
             batch_documents = Variable(torch.LongTensor(batch['documents']))
@@ -131,24 +126,20 @@ def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2,
             batch_queries = Variable(torch.LongTensor(batch['queries']))
             # 1 for locations with the answer token and 0 elsewhere
             batch_answer_mask = Variable(torch.FloatTensor(batch['ansmask']).unsqueeze(-1))
-            batch_length_mask = Variable(torch.FloatTensor(batch['lengthmask']).unsqueeze(-1))
+            batch_document_mask = Variable(torch.FloatTensor(batch['docmask']).unsqueeze(-1))
+            batch_query_mask = Variable(torch.FloatTensor(batch['qmask']).unsqueeze(-1))
 
             # Similar to answer mask, but for every other entity
             batch_entity_locations = batch['entlocations']
-            # Index to un- sort the arrays
-            batch_query_unsort = Variable(torch.LongTensor(batch['qunsort']))
-            batch_document_unsort = Variable(torch.LongTensor(batch['docunsort']))
 
             if USE_CUDA:
                 batch_documents = batch_documents.cuda()
                 batch_queries = batch_queries.cuda()
                 batch_answer_mask = batch_answer_mask.cuda()
-                batch_length_mask = batch_length_mask.cuda()
-                batch_query_unsort = batch_query_unsort.cuda()
-                batch_document_unsort = batch_document_unsort.cuda()
+                batch_document_mask = batch_document_mask.cuda()
+                batch_query_mask = batch_query_mask.cuda()
 
-            probs = model(batch_documents, batch_queries, batch_query_lengths,
-                          batch_doc_lengths, batch_query_unsort, batch_document_unsort, batch_length_mask)
+            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask)
             loss = model.loss(probs, batch_answer_mask)
             loss.backward()
 
@@ -165,9 +156,8 @@ def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2,
                 train_loss += loss.data.numpy()[0] * batch_length
                 probs = probs.data.numpy()
 
-            # Evaluate train accuracy, have to use the unsorted document lengths
-            train_score += evaluate(probs, batch_entity_locations,
-                                    batch_doc_lengths[batch['docunsort']], batch_length) * batch_length
+            # Evaluate train accuracy
+            train_score += evaluate(probs, batch_entity_locations, batch_length) * batch_length
             train_denom += batch_length
 
     print("Training completed")
@@ -202,7 +192,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_cuda", type=bool, default=True)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--bucket_size", type=int, default=10)
-    parser.add_argument("--encoding_dim", type=int, default=384)
+    parser.add_argument("--encoding_dim", type=int, default=256)
     parser.add_argument("--embedding_dim", type=int, default=128)
     parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--num_epochs", type=int, default=2)
@@ -216,8 +206,10 @@ if __name__ == "__main__":
         USE_CUDA = False
 
 
-    # Set random seed for reproducibility
+    # Set random seeds for reproducibility
     torch.manual_seed(args.seed)
+    random.seed(args.seed)
+
 
     DL = DataLoader()
 
@@ -228,7 +220,7 @@ if __name__ == "__main__":
     print("Loading test data")
     test_data = DL.load_data(args.test_path, args.max_test)
 
-    model = ASReader(DL.data_vocab.get_length(), args.embedding_dim, args.encoding_dim)
+    model = ASReader(DL.data_vocab.get_length(), args.encoding_dim)
     if USE_CUDA:
         model.cuda()
 
