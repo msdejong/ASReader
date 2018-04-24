@@ -69,7 +69,7 @@ class ScaledDotProductAttention(nn.Module):
         super(ScaledDotProductAttention, self).__init__()
         self.temper = np.power(hidden_dim, 0.5)
         self.softmax = nn.Softmax(dim=2)
-        self.one_scalar = torch.ones(1)
+        self.one_scalar = nn.Parameter(torch.ones(1))
         self.number_heads = number_heads
 
     def forward(self, queries, keys, values, mask):
