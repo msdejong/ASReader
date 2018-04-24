@@ -1,9 +1,10 @@
 from __future__ import division
 import torch
 from torch import nn
-from torch.autograd import Variable
+# from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
+
 
 
 
@@ -24,6 +25,8 @@ class PositionEncoding(nn.Module):
 
     def forward(self, batch):
         batch_positions = torch.arange(batch.size(1)).long()
+        if torch.cuda.is_available():
+            batch_positions = batch_positions.cuda()
         output = self.position_encoding(batch_positions).expand(batch.size(0), -1, -1)
         return output
 
