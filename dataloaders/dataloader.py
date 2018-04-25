@@ -186,8 +186,14 @@ class DataLoader():
                 # Create length mask
                 document_mask = np.array([[int(x < batch_document_lengths[i]) 
                                          for x in range(maximum_document_length)] for i in range(batch_length)])
+
+                
+
                 query_mask = np.array([[int(x < batch_query_lengths[i]) 
                                          for x in range(maximum_query_length)] for i in range(batch_length)])
+
+                # query_mask = np.zeros((batch_length, maximum_query_length))
+                
 
                 # An entity mask similar to the answer mask, for every entity in the document.
                 # Later used to calculate entity probabilities.

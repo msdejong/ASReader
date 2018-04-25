@@ -129,6 +129,8 @@ def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2,
             batch_document_mask = Variable(torch.FloatTensor(batch['docmask']).unsqueeze(-1))
             batch_query_mask = Variable(torch.FloatTensor(batch['qmask']).unsqueeze(-1))
 
+
+
             # Similar to answer mask, but for every other entity
             batch_entity_locations = batch['entlocations']
 
