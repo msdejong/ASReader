@@ -30,8 +30,6 @@ class ASReader(nn.Module):
 
     def forward(self, document_batch, query_batch, document_mask, query_mask):
 
-        
-        document_mask = Variable(torch.ones(document_batch.size(0), document_batch.size(1), 1))
         query_embedded = self.embedding_layer(query_batch)
         query_encoded = self.query_encoding(query_embedded, query_mask)
         query_pooled = F.max_pool1d(query_encoded.permute(0, 2, 1), kernel_size=query_encoded.size(1))
