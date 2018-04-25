@@ -76,8 +76,8 @@ class ScaledDotProductAttention(nn.Module):
 
         attn = torch.bmm(queries, keys.transpose(1, 2)) / self.temper
         size = attn.size()
-        repeated_mask = mask.repeat(self.number_heads, 1, size[2])
-        inverted_mask = (- repeated_mask.data + self.one_scalar.data).byte()
+        expanded_mask = mask.expand(size)
+        inverted_mask = (- expanded_mask.data + self.one_scalar.data).byte()
 
         attn.data.masked_fill_(inverted_mask, -10**10)
         attn = self.softmax(attn)
