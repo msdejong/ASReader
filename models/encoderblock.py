@@ -1,9 +1,19 @@
 from __future__ import division
 import torch
 from torch import nn
-# from torch.autograd import Variable
+from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
+
+
+def print_grad(name):
+    def hook(grad):
+        print(name, grad)
+    return hook
+
+
+# In here, save_grad('y') returns a hook (a function) that keeps 'y' as name
+
 
 
 
@@ -54,13 +64,13 @@ class SeparableConvolution(nn.Module):
         self.layer_norm = LayerNormalization(hidden_dim)
 
     def forward(self, input_batch, mask):
+        input_batch = input_batch * mask
         transposed_input = input_batch.transpose(1,2)
         depth_output = self.depthwise(transposed_input)
         pointwise_output = self.pointwise(depth_output).transpose(1,2)
         highway_output = pointwise_output + input_batch
         norm_output = self.layer_norm(highway_output)
-        masked_output = norm_output * mask
-        return masked_output
+        return norm_output
 
 class ScaledDotProductAttention(nn.Module):
     ''' Scaled Dot-Product Attention '''
@@ -161,12 +171,15 @@ class EncoderBlock(nn.Module):
         self.feedforward_layer = FeedForward(hidden_dim, 2 * hidden_dim)
 
     def forward(self, input_batch, mask):
+        
         pos_encoded = self.position_encoding(input_batch)
         conv_output = input_batch + pos_encoded        
         for convolution_layer in self.convolution_layers:
             conv_output = convolution_layer(conv_output, mask)
+
         
         attended_output = self.attention_layer(conv_output, mask)
+
         output = self.feedforward_layer(attended_output)
 
         return output
