@@ -5,6 +5,13 @@ from torch.nn import functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.nn.init import orthogonal
 from encoderblock import EncoderBlock
+import pdb
+
+def print_grad(name):
+    def hook(grad):
+        # pdb.set_trace()
+        print(name, grad)
+    return hook
 
 class ASReader(nn.Module):
     def __init__(self, vocab_size, encoding_dim):
@@ -22,11 +29,11 @@ class ASReader(nn.Module):
 
 
     def forward(self, document_batch, query_batch, document_mask, query_mask):
-        
+
         query_embedded = self.embedding_layer(query_batch)
         query_encoded = self.query_encoding(query_embedded, query_mask)
         query_pooled = F.max_pool1d(query_encoded.permute(0, 2, 1), kernel_size=query_encoded.size(1))
-
+        query_encoded.register_hook(print_grad('input'))
         document_embedded = self.embedding_layer(document_batch)
         document_encoded = self.document_encoding(document_embedded, document_mask)
 
@@ -37,6 +44,7 @@ class ASReader(nn.Module):
         return probs
 
     def loss(self, probs, answer_mask):
+        probs.register_hook(print_grad('probs'))
 
         # Calculate the sum of probabilities over the positions in the document that have the answer token by multiplying all other positions by 0
         answer_probs = torch.sum(probs * answer_mask, 1)
