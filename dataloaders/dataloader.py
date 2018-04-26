@@ -213,6 +213,7 @@ class DataLoader():
                 return batch
 
             # Take care of last batch separately because may contain a different amount of data
+            end_index = 0
             for j in range(number_batches - 1):
                 begin_index, end_index = j * batch_size, (j + 1) * batch_size
                 batch_data = list(bucket_data[begin_index:end_index])
