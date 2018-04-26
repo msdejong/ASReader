@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.nn.init import orthogonal
-from encoderblock import EncoderBlock
+from encoderblock import EncoderBlocks
 import pdb
 
 def print_grad(name):
@@ -21,8 +21,8 @@ class ASReader(nn.Module):
 
         self.embedding_layer = nn.Embedding(vocab_size, encoding_dim)
 
-        self.document_encoding = EncoderBlock(5000, encoding_dim, 7, 4, 8)
-        self.query_encoding = EncoderBlock(5000, encoding_dim, 7, 4, 8)
+        self.document_encoding = EncoderBlocks(1, 5000, encoding_dim, 7, 4, 8)
+        self.query_encoding = EncoderBlocks(1, 5000, encoding_dim, 7, 4, 8)
         # self.softmax = nn.Softmax(dim=1)
 
         self.initialize_weights()

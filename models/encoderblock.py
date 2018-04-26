@@ -6,18 +6,6 @@ import torch.nn.functional as F
 import numpy as np
 
 
-def print_grad(name):
-    def hook(grad):
-        print(name, grad)
-    return hook
-
-
-# In here, save_grad('y') returns a hook (a function) that keeps 'y' as name
-
-
-
-
-
 class PositionEncoding(nn.Module):
     def __init__(self, max_positions, hidden_dim, pad_token=0):
         super(PositionEncoding, self).__init__()
@@ -176,11 +164,17 @@ class EncoderBlock(nn.Module):
         conv_output = input_batch + pos_encoded        
         for convolution_layer in self.convolution_layers:
             conv_output = convolution_layer(conv_output, mask)
-
-        
         attended_output = self.attention_layer(conv_output, mask)
-
         output = self.feedforward_layer(attended_output)
 
         return output
-        
+
+class EncoderBlocks(nn.Module):
+    def __init__(self, n_blocks, max_positions, hidden_dim, kernel_size, n_conv, attention_heads):
+        super(EncoderBlocks, self).__init__()
+        self.encoder_blocks = nn.ModuleList([EncoderBlock(max_positions, hidden_dim, kernel_size, n_conv, attention_heads) for _ in range(n_blocks)])
+    def forward(self, input_batch, mask):
+        block_output = input_batch
+        for encoder_block in self.encoder_blocks:
+            block_output = encoder_block(block_output, mask)
+        return block_output
