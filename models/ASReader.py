@@ -56,7 +56,6 @@ class ASReader(nn.Module):
     def loss(self, probs, answer_mask):
         # Calculate the sum of probabilities over the positions in the document that have the answer token by multiplying all other positions by 0
         answer_probs = torch.sum(probs * answer_mask, 1)
-        answer_probs.register_hook(print_grad('answerprobs'))
         loss_vector = -torch.log(answer_probs)
         return torch.mean(loss_vector)
 
