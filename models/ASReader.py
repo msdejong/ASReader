@@ -27,6 +27,19 @@ class ASReader(nn.Module):
 
         self.initialize_weights()
 
+    def adjust_scores(self, probs, spans, sentence_scores):
+
+        for i in range(spans.shape[0]):
+            for j in range(spans.shape[1]):
+                span_mean = torch.mean(probs[i, spans[i, j, 0]:spans[i, j, 1]].clone())
+                if span_mean.data[0] != 0:
+                    probs[i, spans[i, j, 0]:spans[i, j, 1]] = probs[i, spans[i, j, 0]:spans[i, j, 1]] * sentence_scores[i, j] / span_mean
+
+        probs = probs/torch.sum(probs, dim=1, keepdim=True)
+
+        return probs
+
+
 
     def forward(self, document_batch, query_batch, document_mask, query_mask, spans, sentence_scores):
 
@@ -43,15 +56,8 @@ class ASReader(nn.Module):
     
         probs = self.softmax_mask(scores, document_mask)
 
-        for i in range(spans.shape[0]):
-            for j in range(spans.shape[1]):
-                span_mean = torch.mean(probs[i, spans[i, j, 0]:spans[i, j, 1]].clone())
-                if span_mean.data[0] != 0:
-                    probs[i, spans[i, j, 0]:spans[i, j, 1]] = probs[i, spans[i, j, 0]:spans[i, j, 1]] * sentence_scores[i, j] / span_mean
+        return self.adjust_scores(probs, spans, sentence_scores)
 
-        probs = probs/torch.sum(probs, dim=1, keepdim=True)
-
-        return probs
 
     def loss(self, probs, answer_mask):
         # Calculate the sum of probabilities over the positions in the document that have the answer token by multiplying all other positions by 0
