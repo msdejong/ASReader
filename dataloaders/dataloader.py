@@ -192,7 +192,22 @@ class DataLoader():
                 query_mask = np.array([[int(x < batch_query_lengths[i]) 
                                          for x in range(maximum_query_length)] for i in range(batch_length)])
 
-                # query_mask = np.zeros((batch_length, maximum_query_length))
+                sentence_length=10
+                number_sentences=maximum_document_length//sentence_length
+                if maximum_document_length % sentence_length > 0:
+                    number_sentences+=1
+                
+                scores = np.random.rand(number_sentences)
+                scores /= np.sum(scores)
+                scores = np.repeat(np.expand_dims(scores, 0), batch_length, axis=0)
+                spans = np.zeros((number_sentences, 2), dtype=int)
+                
+                for i in range(number_sentences - 1):
+                    spans[i,:] = np.array((i*sentence_length, (i+1)*sentence_length))
+                spans[number_sentences-1, :] = ((number_sentences-1)*sentence_length, maximum_document_length)
+                spans = np.repeat(np.expand_dims(spans, 0), batch_length, axis=0)
+
+
                 
 
                 # An entity mask similar to the answer mask, for every entity in the document.
@@ -209,6 +224,8 @@ class DataLoader():
                 batch['docmask'] = document_mask
                 batch['qmask'] = query_mask
                 batch["entlocations"] = entity_locations
+                batch["spans"]=spans
+                batch["scores"]=scores
 
                 return batch
 

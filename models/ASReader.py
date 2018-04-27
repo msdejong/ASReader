@@ -28,7 +28,7 @@ class ASReader(nn.Module):
         self.initialize_weights()
 
 
-    def forward(self, document_batch, query_batch, document_mask, query_mask):
+    def forward(self, document_batch, query_batch, document_mask, query_mask, spans, sentence_scores):
 
         query_embedded = self.embedding_layer(query_batch)
         query_encoded = self.query_encoding(query_embedded, query_mask)
@@ -40,13 +40,23 @@ class ASReader(nn.Module):
 
         # Take the dot product of document encodings and the query encoding.
         scores = torch.bmm(document_encoded, query_pooled)
+    
         probs = self.softmax_mask(scores, document_mask)
+
+        for i in range(spans.shape[0]):
+            for j in range(spans.shape[1]):
+                span_mean = torch.mean(probs[i, spans[i, j, 0]:spans[i, j, 1]].clone())
+                if span_mean.data[0] != 0:
+                    probs[i, spans[i, j, 0]:spans[i, j, 1]] = probs[i, spans[i, j, 0]:spans[i, j, 1]] * sentence_scores[i, j] / span_mean
+
+        probs = probs/torch.sum(probs, dim=1, keepdim=True)
 
         return probs
 
     def loss(self, probs, answer_mask):
         # Calculate the sum of probabilities over the positions in the document that have the answer token by multiplying all other positions by 0
         answer_probs = torch.sum(probs * answer_mask, 1)
+        answer_probs.register_hook(print_grad('answerprobs'))
         loss_vector = -torch.log(answer_probs)
         return torch.mean(loss_vector)
 

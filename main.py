@@ -32,15 +32,19 @@ def evaluate_batches(model, eval_batches):
         batch_document_mask = Variable(torch.FloatTensor(batch['docmask']).unsqueeze(-1))
         batch_query_mask = Variable(torch.FloatTensor(batch['qmask']).unsqueeze(-1))
 
+        spans=batch["spans"]
+        scores=batch["scores"]
+        
+
         if USE_CUDA:
             batch_documents = batch_documents.cuda()
             batch_queries = batch_queries.cuda()
             batch_document_mask = batch_document_mask.cuda()
             batch_query_mask = batch_query_mask.cuda()
-            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask).data.cpu().numpy()
+            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask, spans, scores).data.cpu().numpy()
 
         else:
-            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask).data.numpy()
+            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask, spans, scores).data.numpy()
 
         score += evaluate(probs, batch_entity_locations, batch_length) * batch_length
         denom += batch_length
@@ -129,6 +133,8 @@ def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2,
             batch_document_mask = Variable(torch.FloatTensor(batch['docmask']).unsqueeze(-1))
             batch_query_mask = Variable(torch.FloatTensor(batch['qmask']).unsqueeze(-1))
 
+            spans=batch["spans"]
+            scores=batch["scores"]
 
 
             # Similar to answer mask, but for every other entity
@@ -141,7 +147,7 @@ def train(model, training_data, valid_data, test_data, dataloader, num_epochs=2,
                 batch_document_mask = batch_document_mask.cuda()
                 batch_query_mask = batch_query_mask.cuda()
 
-            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask)
+            probs = model(batch_documents, batch_queries, batch_document_mask, batch_query_mask, spans, scores)
             loss = model.loss(probs, batch_answer_mask)
             loss.backward()
 
